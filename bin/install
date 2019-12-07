@@ -16,25 +16,61 @@ error_exit() {
   exit "${2:-1}"
 }
 
+version_lte() {
+  [  "$1" = "$(echo -e "$1\n$2" | sort -V | head -n1)" ]
+}
+
+version_lt() {
+  [ "$1" = "$2" ] && return 1 || version_lte "$1" "$2"
+}
+
+get_download_url() {
+  local -r version="$1"
+  local -r platform="$(uname | tr '[:upper:]' '[:lower:]')_amd64"
+
+  if version_lt "$version" "3.3.0"; then
+    if version_lte "$version" "3.2.0"; then
+      echo "${DOWNLOAD_BASE_URL}/v${version}/${BINARY_NAME}_${version}_${platform}"
+    else
+      echo "${DOWNLOAD_BASE_URL}/${BINARY_NAME}%2Fv${version}/${BINARY_NAME}_${BINARY_NAME}.v${version}_${platform}"
+    fi
+  else
+    echo "${DOWNLOAD_BASE_URL}/${BINARY_NAME}%2Fv${version}/${BINARY_NAME}_v${version}_${platform}.tar.gz"
+  fi
+}
+
 install() {
   local -r install_type="$1"
   local -r install_version="$2"
   local -r install_path="$3"
   local -r install_path_bin="${install_path}/bin"
-  local -r platform="$(uname | tr '[:upper:]' '[:lower:]')_amd64"
-  local -r download_url="${DOWNLOAD_BASE_URL}/v${install_version}/${BINARY_NAME}_${install_version}_${platform}"
-  local -r download_path="${TMP_DOWNLOAD_DIR}/${BINARY_NAME}"
+  local -r download_url=$(get_download_url "$install_version")
 
   [ "$install_type" != "version" ] && error_exit "Error: source installs are not supported"
 
   echo "Downloading from ${download_url}"
-  if curl -fL -o "$download_path" "$download_url"; then
-    echo "Installing binary"
-    mkdir -p "$install_path_bin"
-    mv "$download_path" "${install_path_bin}/${BINARY_NAME}"
-    chmod +x "${install_path_bin}/${BINARY_NAME}"
+  if [[ "$download_url" == *"tar.gz"* ]]; then
+    local -r download_path="${TMP_DOWNLOAD_DIR}/${BINARY_NAME}.tar.gz"
+    local -r extracted_path="${TMP_DOWNLOAD_DIR}/extracted"
+    if curl -fL -o "$download_path" "$download_url"; then
+      echo "Installing binary"
+      mkdir "$extracted_path"
+      tar -xzf "$download_path" -C "$extracted_path"
+      mkdir -p "$install_path_bin"
+      mv "${extracted_path}/${BINARY_NAME}" "$install_path_bin"
+    else
+      error_exit "Error: ${BINARY_NAME} version ${install_version} not found"
+    fi
   else
-    error_exit "Error: ${BINARY_NAME} version ${install_version} not found"
+    local -r download_path="${TMP_DOWNLOAD_DIR}/${BINARY_NAME}"
+    if curl -fL -o "$download_path" "$download_url"; then
+      echo "Installing binary"
+      mkdir -p "$install_path_bin"
+      mv "$download_path" "${install_path_bin}/${BINARY_NAME}"
+      chmod +x "${install_path_bin}/${BINARY_NAME}"
+    else
+      error_exit "Error: ${BINARY_NAME} version ${install_version} not found"
+    fi
   fi
 }
 

@@ -13,30 +13,33 @@ on:
 jobs:
   plugin_test:
     strategy:
+      fail-fast: false
       matrix:
-        os: [macOS-latest, ubuntu-latest]
+        os:
+          - macos-latest
+          - ubuntu-latest
 
     runs-on: ${{ matrix.os }}
 
     steps:
-      - name: asdf_plugin_test
-        uses: asdf-vm/actions/plugin-test@v1.0.0
+      - name: Test plugin
+        uses: asdf-vm/actions/plugin-test@v1
         with:
           command: kustomize version
         env:
           GITHUB_API_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       # Test changes to download URL format with specific versions
-      - name: asdf_plugin_test_3_2_1
-        uses: asdf-vm/actions/plugin-test@v1.0.0
+      - name: Test plugin (kustomize 3.2.1)
+        uses: asdf-vm/actions/plugin-test@v1
         with:
           version: 3.2.1
           command: kustomize version
         env:
           GITHUB_API_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: asdf_plugin_test_3_2_0
-        uses: asdf-vm/actions/plugin-test@v1.0.0
+      - name: Test plugin (kustomize 3.2.0)
+        uses: asdf-vm/actions/plugin-test@v1
         with:
           version: 3.2.0
           command: kustomize version
